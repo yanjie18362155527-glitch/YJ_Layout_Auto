@@ -1,5 +1,6 @@
 import os
 import traceback
+import gdstk
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
                              QPushButton, QFileDialog, QComboBox, QSpinBox, 
                              QDoubleSpinBox, QGroupBox, QProgressBar, QTextEdit, 
@@ -352,9 +353,9 @@ class ShotTab(QWidget):
         self.combo_unit = QComboBox()
         
         fl.addLayout(h1)
-        fl.addWidget(QLabel("Top Cell:"))
+        fl.addWidget(QLabel("包含众多Shot的 父Cell:"))
         fl.addWidget(self.combo_top)
-        fl.addWidget(QLabel("Unit Cell:"))
+        fl.addWidget(QLabel("Shot Cell:"))
         fl.addWidget(self.combo_unit)
         grp_file.setLayout(fl)
         
