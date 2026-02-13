@@ -2,12 +2,12 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget, QAction, QMessageBox
 
 # 导入 UI 模块
-from gui.tabs import LensTab, PadTab, ShotTab
+from gui.tabs import LensTab, PadTab, ShotTab, CellInfoTab
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LayoutAutoTools_V1.1.2")
+        self.setWindowTitle("LayoutAutoTools Pro V2.1 - With Cell Info")
         self.resize(1200, 850)
         self.init_ui()
 
@@ -32,10 +32,12 @@ class MainWindow(QMainWindow):
         self.lens_tab = LensTab()
         self.pad_tab = PadTab()
         self.shot_tab = ShotTab()
+        self.info_tab = CellInfoTab()
         
         self.tabs.addTab(self.lens_tab, "1. Lens 自动编号")
         self.tabs.addTab(self.pad_tab, "2. Pad 信息提取")
         self.tabs.addTab(self.shot_tab, "3. Shot 自动编号")
+        self.tabs.addTab(self.info_tab, "4. shot内 DB信息提取")
 
         # 样式优化
         self.tabs.setStyleSheet("""
@@ -45,9 +47,9 @@ class MainWindow(QMainWindow):
 
     def show_about(self):
         QMessageBox.about(self, "关于", 
-            "版图自动化专家工具集 V1.1.2\n\n"
+            "版图自动化专家工具集 V2.1\n\n"
             "架构重构版 (MVC Pattern)\n"
-            "包含: Lens Numbering, Pad Extraction, Shot Indexing")
+            "新增功能: 指定子Cell坐标提取与可视化")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

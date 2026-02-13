@@ -3,11 +3,12 @@ import traceback
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
                              QPushButton, QFileDialog, QComboBox, QSpinBox, 
                              QDoubleSpinBox, QGroupBox, QProgressBar, QTextEdit, 
-                             QMessageBox, QDialog, QSplitter)
+                             QMessageBox, QDialog, QSplitter, QListWidget, QListWidgetItem,
+                             QAbstractItemView)
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 
 # 导入我们的自定义模块
-from core.engines import LensEngine, PadEngine, ShotEngine
+from core.engines import LensEngine, PadEngine, ShotEngine, CellInfoEngine
 from gui.widgets import UniversalGDSViewer
 
 # --- Worker for Pad Threading ---
@@ -468,3 +469,130 @@ class ShotTab(QWidget):
             QMessageBox.information(self, "Success", "生成成功")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"{traceback.format_exc()}")
+
+# --- Tab 4: Cell Info (New Feature) ---
+class CellInfoTab(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.engine = CellInfoEngine()
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QHBoxLayout(self)
+        
+        # Left Side: Controls
+        left_pnl = QWidget()
+        l_vbox = QVBoxLayout(left_pnl)
+        left_pnl.setMaximumWidth(400)
+        
+        # 1. Input
+        grp_in = QGroupBox("1. GDS 与 Parent")
+        form1 = QVBoxLayout()
+        self.btn_load = QPushButton("读取 GDS")
+        self.btn_load.clicked.connect(self.load_gds)
+        self.lbl_path = QLabel("无文件")
+        self.combo_parent = QComboBox()
+        self.combo_parent.currentIndexChanged.connect(self.on_parent_changed)
+        
+        form1.addWidget(self.btn_load)
+        form1.addWidget(self.lbl_path)
+        form1.addWidget(QLabel("选择 Top Cell:"))
+        form1.addWidget(self.combo_parent)
+        grp_in.setLayout(form1)
+        
+        # 2. Child Selection
+        grp_child = QGroupBox("2. 筛选指定 Child Cells")
+        form2 = QVBoxLayout()
+        self.list_child = QListWidget()
+        self.list_child.setSelectionMode(QAbstractItemView.NoSelection) # 使用Checkbox控制
+        form2.addWidget(QLabel("勾选需要提取的子 Cell:"))
+        form2.addWidget(self.list_child)
+        grp_child.setLayout(form2)
+        
+        # 3. Output
+        grp_out = QGroupBox("3. 执行")
+        form3 = QVBoxLayout()
+        self.line_out = QLineEdit("result_cell_info.xlsx")
+        self.btn_run = QPushButton("提取并生成报告")
+        self.btn_run.setFixedHeight(40)
+        self.btn_run.clicked.connect(self.run)
+        
+        form3.addWidget(QLabel("输出 Excel:"))
+        form3.addWidget(self.line_out)
+        form3.addWidget(self.btn_run)
+        grp_out.setLayout(form3)
+        
+        l_vbox.addWidget(grp_in)
+        l_vbox.addWidget(grp_child)
+        l_vbox.addWidget(grp_out)
+        
+        # Right Side: Preview
+        self.viewer = UniversalGDSViewer()
+        
+        layout.addWidget(left_pnl)
+        layout.addWidget(self.viewer)
+
+    def load_gds(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Open GDS", "", "*.gds")
+        if path:
+            try:
+                names = self.engine.load_lib(path)
+                self.lbl_path.setText(os.path.basename(path))
+                self.combo_parent.clear()
+                self.combo_parent.addItems(names)
+                # 尝试智能选择一个看起来像 Top 的
+                if len(names) > 0:
+                    # 简单启发式：选最大的名字或者包含 TOP 的
+                    pass 
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+
+    def on_parent_changed(self):
+        p_name = self.combo_parent.currentText()
+        if not p_name: return
+        
+        # 1. 更新 Viewer
+        if p_name in self.engine.cells_map:
+            self.viewer.load_cell(self.engine.cells_map[p_name])
+            
+        # 2. 更新子 Cell 列表
+        children = self.engine.get_child_names(p_name)
+        self.list_child.clear()
+        for c in children:
+            item = QListWidgetItem(c)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Unchecked)
+            self.list_child.addItem(item)
+
+    def run(self):
+        # 获取选中的 targets
+        targets = []
+        for i in range(self.list_child.count()):
+            item = self.list_child.item(i)
+            if item.checkState() == Qt.Checked:
+                targets.append(item.text())
+        
+        if not targets:
+            QMessageBox.warning(self, "Warning", "请至少勾选一个子 Cell")
+            return
+            
+        try:
+            self.btn_run.setEnabled(False)
+            self.btn_run.setText("处理中...")
+            
+            # 由于可能包含绘图，如果数据量大可能会卡，实际项目中建议放到 WorkerThread
+            # 这里为了演示简洁直接调用
+            count = self.engine.process(
+                self.combo_parent.currentText(),
+                targets,
+                self.line_out.text(),
+                "temp_cell_info_plot.png"
+            )
+            
+            QMessageBox.information(self, "Success", f"处理完成！\n共提取 {count} 个实例。\n已保存至 {self.line_out.text()}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", traceback.format_exc())
+        finally:
+            self.btn_run.setEnabled(True)
+            self.btn_run.setText("提取并生成报告")
