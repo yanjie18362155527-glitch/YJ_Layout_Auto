@@ -96,12 +96,34 @@ class LensEngine(BaseEngine):
 
 class PadEngine(BaseEngine):
     """Pad 信息提取核心算法"""
+    
     def run_analysis(self, gds_path, cell_name, layer, datatype, output_path, temp_img_path):
         lib = gdstk.read_gds(gds_path)
         cell_dict = {cell.name: cell for cell in lib.cells}
-        if cell_name not in cell_dict: raise ValueError(f"Cell '{cell_name}' 未在库中找到。")
+        
+        if cell_name not in cell_dict:
+            raise ValueError(f"Cell '{cell_name}' 未在库中找到。")
+        
         cell = cell_dict[cell_name]
         flat_cell = cell.flatten()
+        
+        # --- [新增功能] 归一化坐标：将 Cell 左下角移至 (0,0) ---
+        bbox = flat_cell.bounding_box()
+        if bbox is not None:
+            min_x, min_y = bbox[0]
+            # 计算平移量
+            dx = -min_x
+            dy = -min_y
+            
+            # 平移所有多边形 (Path和Label也顺带平移，确保视图一致)
+            for poly in flat_cell.polygons:
+                poly.translate(dx, dy)
+            for path in flat_cell.paths:
+                path.translate(dx, dy)
+            for label in flat_cell.labels:
+                label.origin = (label.origin[0] + dx, label.origin[1] + dy)
+        # ----------------------------------------------------
+        
         raw_data_with_poly = []
         for poly in flat_cell.polygons:
             if poly.layer == layer and poly.datatype == datatype:
@@ -112,12 +134,17 @@ class PadEngine(BaseEngine):
                     cx, cy = (min_x + max_x)/2, (min_y + max_y)/2
                     w, h = max_x - min_x, max_y - min_y
                     raw_data_with_poly.append({'data': {'cx': cx, 'cy': cy, 'w': w, 'h': h}, 'points': poly.points})
-        if not raw_data_with_poly: raise ValueError("未找到数据。")
+        
+        if not raw_data_with_poly:
+            raise ValueError("未找到数据。")
+            
         raw_data_with_poly.sort(key=lambda item: (-round(item['data']['cy'], 3), item['data']['cx']))
         data_list = [item['data'] for item in raw_data_with_poly]
         polygons_to_draw = [item['points'] for item in raw_data_with_poly]
+        
         self._generate_plot(data_list, polygons_to_draw, temp_img_path)
         self._write_excel(data_list, output_path, temp_img_path)
+        
         return len(data_list)
 
     def _generate_plot(self, data_list, polygons, img_path):
@@ -135,7 +162,6 @@ class PadEngine(BaseEngine):
         ax.set_aspect('equal')
         ax.autoscale_view()
         ax.grid(True, linestyle='--', alpha=0.3)
-        plt.savefig(img_path, bbox_inches='tight', dpi=100)
         plt.close(fig)
 
     def _write_excel(self, data_list, output_path, img_path):
@@ -209,7 +235,7 @@ class ShotEngine(BaseEngine):
 
 # --- Cell Info 引擎 (完美对齐 + 坐标轴修复版) ---
 class CellInfoEngine(BaseEngine):
-    """Cell 信息提取与对齐图生成引擎"""
+    """SHOT内 DB信息提取与对齐图生成引擎"""
 
     def get_child_names(self, parent_name):
         if parent_name not in self.cells_map: return []
