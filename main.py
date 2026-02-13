@@ -7,7 +7,7 @@ from gui.tabs import LensTab, PadTab, ShotTab, CellInfoTab
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LayoutAutoTools Pro V2.1 - With Cell Info")
+        self.setWindowTitle("LayoutAutoTools_V2.1.1_YJ")
         self.resize(1200, 850)
         self.init_ui()
 
@@ -47,8 +47,8 @@ class MainWindow(QMainWindow):
 
     def show_about(self):
         QMessageBox.about(self, "关于", 
-            "版图自动化专家工具集 V2.1\n\n"
-            "架构重构版 (MVC Pattern)\n"
+            "版图自动化工具集 V2.1.1\n\n"
+            "PAD信息提取之前先将cell左下角置于原点"
             "新增功能: 指定子Cell坐标提取与可视化")
 
 if __name__ == "__main__":
